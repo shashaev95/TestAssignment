@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Маржа инференса GLM 5.3 — калькулятор</title>
+<style>
+  :root { --yellow:#FFDB4D; --black:#21201F; --gray:#6D6D6D; --card:#F5F5F3;
+          --green:#1F8A4C; --red:#D93B3B; --line:#EDEDEB; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,'Segoe UI',Arial,sans-serif; color:var(--black);
+         background:#fff; max-width:960px; margin:0 auto; padding:32px 24px 48px; }
+  .top { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  .logo { width:40px; height:40px; border-radius:12px; background:var(--yellow);
+          display:flex; align-items:center; justify-content:center; font-weight:800; font-size:22px; }
+  h1 { font-size:22px; }
+  .sub { color:var(--gray); font-size:13px; margin-bottom:22px; }
+  h2 { font-size:15px; margin:22px 0 12px; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .card { background:var(--card); border-radius:14px; padding:14px 16px; }
+  label { display:block; font-size:11px; color:var(--gray); margin-bottom:4px; }
+  input { width:100%; padding:8px 10px; border:1px solid #E0E0DE; border-radius:10px;
+          font-size:14px; background:#fff; }
+  input:focus { outline:2px solid var(--yellow); border-color:var(--yellow); }
+  .results { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:8px; }
+  .res { background:#fff; border:2px solid var(--card); border-radius:14px; padding:14px 16px; }
+  .res .cap { font-size:11px; color:var(--gray); }
+  .res .val { font-size:22px; font-weight:700; margin-top:2px; }
+  .res .note { font-size:11px; color:var(--gray); margin-top:2px; }
+  .pos { color:var(--green); } .neg { color:var(--red); }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--gray); font-size:11px; font-weight:600; text-transform:uppercase; }
+  .btn { margin-top:22px; background:var(--yellow); color:var(--black); border:none;
+         border-radius:12px; padding:12px 24px; font-size:15px; font-weight:600; cursor:pointer; }
+  .btn:hover { background:#FFD633; }
+  .btn:active { transform:scale(0.98); }
+  .answer { background:var(--yellow); border-radius:14px; padding:14px 18px;
+            margin-top:22px; font-size:14px; line-height:1.5; }
+  .formula { color:var(--gray); font-size:11px; margin-top:16px; line-height:1.6; }
+  @media print {
+    body { padding:0; }
+    .btn { display:none; }
+    input { border:none; padding:2px 0; font-size:13px; }
+    .res { break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top"><div class="logo">₽</div><h1>Маржа инференса GLM 5.3 (Sail Research)</h1></div>
+<div class="sub">Все расчёты в рублях, по средним значениям · данные на 22.09.2026 · курс ЦБ РФ 84,10 ₽/$</div>
+
+<h2>1. Модель</h2>
+<div class="grid">
+  <div class="card"><label>Всего параметров, млрд (GLM 5.3 = 753)</label><input id="params_total" type="number" step="1" value="753"></div>
+  <div class="card"><label>Активных параметров на токен, млрд</label><input id="params_active" type="number" step="1" value="40"></div>
+  <div class="card"><label>Байт на параметр (FP8 = 1, FP-16 = 2)</label><input id="bytes" type="number" step="0.5" value="1"></div>
+  <div class="card"><label>Память одной GPU, ГБ (H200 = 141)</label><input id="vram" type="number" step="1" value="141"></div>
+</div>
+
+<h2>2. Цены продажи</h2>
+<div class="grid">
+  <div class="card"><label>Курс доллара, ₽</label><input id="usd" type="number" step="0.01" value="84.10"></div>
+  <div class="card"><label>Цена входных токенов за 1 млн, $</label><input id="price_in" type="number" step="0.01" value="0.98"></div>
+  <div class="card"><label>Цена выходных токенов за 1 млн, $</label><input id="price_out" type="number" step="0.01" value="3.08"></div>
+  <div class="card"><label>Доля входных токенов (0–1)</label><input id="share_in" type="number" step="0.05" value="0.75"></div>
+</div>
+
+<h2>3. Инфраструктура (средние значения)</h2>
+<div class="grid">
+  <div class="card"><label>Аренда одной GPU, ₽/час (средняя)</label><input id="gpu_price" type="number" step="1" value="275"></div>
+  <div class="card"><label>GPU в узле</label><input id="n_gpu" type="number" step="1" value="8"></div>
+  <div class="card"><label>Скорость узла, ток/с (агрегированная)</label><input id="throughput" type="number" step="100" value="7000"></div>
+  <div class="card"><label>Трафик, млн токенов в день</label><input id="daily" type="number" step="1" value="10"></div>
+</div>
+
+<h2>Результаты</h2>
+<div class="results">
+  <div class="res"><div class="cap">Минимум GPU для весов модели</div><div class="val" id="r_gpu_min">—</div><div class="note" id="r_gpu_note"></div></div>
+  <div class="res"><div class="cap">Выручка за 1 млн токенов (бленд)</div><div class="val" id="r_rev">—</div><div class="note" id="r_rev_note"></div></div>
+  <div class="res"><div class="cap">Себестоимость 1 млн токенов</div><div class="val" id="r_cost">—</div><div class="note" id="r_cost_note"></div></div>
+  <div class="res"><div class="cap">Маржа</div><div class="val" id="r_margin">—</div><div class="note" id="r_margin_note"></div></div>
+  <div class="res"><div class="cap">Порог безубыточности</div><div class="val" id="r_brk">—</div><div class="note">ток/с на узел</div></div>
+  <div class="res"><div class="cap">Прибыль при заданном трафике</div><div class="val" id="r_day">—</div><div class="note" id="r_day_note"></div></div>
+</div>
+
+<h2>Чувствительность: маржа при разной скорости узла</h2>
+<table>
+  <thead><tr><th>Скорость узла, ток/с</th><th>Себестоимость 1 млн токенов, ₽</th><th>Маржа</th></tr></thead>
+  <tbody id="tbody"></tbody>
+</table>
+
+<div class="answer" id="verdict"></div>
+
+<div class="formula">
+  Формулы: вес модели (ГБ) = параметры × байты · минимум GPU = ⌈вес ÷ память GPU⌉ (узел кратен 8) ·
+  выручка за 1 млн = доля входа × цена входа + доля выхода × цена выхода ·
+  себестоимость 1 млн = (аренда GPU × число GPU) ÷ (скорость × 3600 ÷ 1 млн) ·
+  маржа = (выручка − себестоимость) ÷ выручка · порог безубыточности = аренда узла × 1 млн ÷ (выручка × 3600).
+</div>
+
+<button class="btn" onclick="window.print()">Сохранить в PDF</button>
+
+<script>
+const fmt = (v, d=1) => v.toLocaleString('ru-RU', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+function calc() {
+  const g = id => parseFloat(document.getElementById(id).value) || 0;
+  const params_total = g('params_total'), bytes = g('bytes'), vram = g('vram'),
+        usd = g('usd'), price_in = g('price_in'), price_out = g('price_out'),
+        share_in = g('share_in'), gpu_price = g('gpu_price'), n_gpu = g('n_gpu'),
+        throughput = g('throughput'), daily = g('daily');
+
+  // вес модели и минимум GPU
+  const weights_gb = params_total * bytes;
+  const gpu_min = Math.ceil(weights_gb / vram);
+  const node_gpus = Math.ceil(gpu_min / 8) * 8;
+
+  // деньги
+  const pin = price_in * usd, pout = price_out * usd;
+  const rev_1m = share_in * pin + (1 - share_in) * pout;
+  const node_hour = gpu_price * n_gpu;
+  const cost_1m = node_hour / (throughput * 3600 / 1e6);
+  const margin = (rev_1m - cost_1m) / rev_1m * 100;
+  const brk = node_hour * 1e6 / (rev_1m * 3600);
+  const day_rev = daily * rev_1m, day_cost = daily * cost_1m, day_profit = day_rev - day_cost;
+
+  document.getElementById('r_gpu_min').textContent = gpu_min + ' GPU';
+  document.getElementById('r_gpu_note').textContent = 'веса ' + fmt(weights_gb, 0) + ' ГБ → узел из ' + node_gpus + ' GPU';
+  document.getElementById('r_rev').textContent = fmt(rev_1m) + ' ₽';
+  document.getElementById('r_rev_note').textContent = 'вход ' + fmt(pin) + ' ₽ / выход ' + fmt(pout) + ' ₽ за 1 млн';
+  document.getElementById('r_cost').textContent = fmt(cost_1m) + ' ₽';
+  document.getElementById('r_cost_note').textContent = 'узел ' + fmt(node_hour, 0) + ' ₽/час при ' + fmt(throughput,0) + ' ток/с';
+  const mEl = document.getElementById('r_margin');
+  mEl.textContent = (margin >= 0 ? '+' : '') + fmt(margin, 0) + '%';
+  mEl.className = 'val ' + (margin >= 0 ? 'pos' : 'neg');
+  document.getElementById('r_margin_note').textContent = (fmt(rev_1m - cost_1m) + ' ₽ на 1 млн токенов');
+  document.getElementById('r_brk').textContent = fmt(brk, 0) + ' ток/с';
+  const dEl = document.getElementById('r_day');
+  dEl.textContent = (day_profit >= 0 ? '+' : '') + fmt(day_profit, 0) + ' ₽/день';
+  dEl.className = 'val ' + (day_profit >= 0 ? 'pos' : 'neg');
+  document.getElementById('r_day_note').textContent = 'выручка ' + fmt(day_rev,0) + ' − себестоимость ' + fmt(day_cost,0) + ' ₽';
+
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '';
+  for (const thr of [4000, 5500, 7000, 8500, 10000]) {
+    const cst = node_hour / (thr * 3600 / 1e6);
+    const mrg = (rev_1m - cst) / rev_1m * 100;
+    const cls = mrg >= 0 ? 'pos' : 'neg';
+    tb.insertAdjacentHTML('beforeend',
+      `<tr><td>${thr.toLocaleString('ru-RU')}</td><td>${fmt(cst)} ₽</td>` +
+      `<td class="${cls}" style="font-weight:700">${mrg >= 0 ? '+' : ''}${fmt(mrg, 0)}%</td></tr>`);
+  }
+
+  const v = document.getElementById('verdict');
+  if (margin > 15)      v.innerHTML = '<b>Вывод: зарабатывают.</b> Маржа заметно выше нуля при такой утилизации (' + fmt(margin,0) + '%).';
+  else if (margin > 0)  v.innerHTML = '<b>Вывод: около нуля / небольшой плюс.</b> Всё решает утилизация узла (маржа ' + fmt(margin,0) + '%).';
+  else                  v.innerHTML = '<b>Вывод: работают в минус.</b> При такой загрузке узла продажа убыточна (маржа ' + fmt(margin,0) + '%).';
+}
+
+document.querySelectorAll('input').forEach(i => i.addEventListener('input', calc));
+calc();
+</script>
+</body>
+</html>
